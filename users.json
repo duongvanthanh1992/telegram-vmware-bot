@@ -1,0 +1,26 @@
+{
+  "users": {
+    "xxxxxxxxxx": {
+      "username": "admin_user",
+      "role": "admin",
+      "name": "Admin Local",
+      "enabled": true
+    },
+    "xxxxxxxxxx": {
+      "username": "regular_user",
+      "role": "user",
+      "name": "User Local",
+      "enabled": true
+    },
+    "xxxxxxxxxx": {
+      "username": "view_only",
+      "role": "viewer",
+      "name": "View Only User",
+      "enabled": true
+    }
+  },
+  "config": {
+    "allow_unknown_users": true,
+    "default_role": "viewer"
+  }
+}
