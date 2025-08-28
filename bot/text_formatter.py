@@ -21,7 +21,7 @@ CONNECTION_STATE_EMOJIS = {
     "unknown": "⚪",
 }
 
-# Status indicators
+# Status indicators (available for callers)
 STATUS_ICONS = {
     "connected": "🔗",
     "disconnected": "🔌",
@@ -46,10 +46,10 @@ def b(v) -> str:
 
 
 def ihtml(v) -> str:
-    """Wrap value in <i>…</i> with HTML-escaped content (preserve newlines)."""
+    """Wrap value in <i>…</i> with HTML-escaped content (preserve newlines as plain newlines)."""
     if v is None:
         return ""
-    text = escape(str(v)).replace("\n", "<br>")
+    text = escape(str(v))
     return f"<i>{text}</i>"
 
 
@@ -139,7 +139,7 @@ def format_vm_basic(vm_info: Dict[str, Any]) -> str:
 
 
 def format_vm_list(
-    vm_list: List[str], title: str = "Virtual Machines", max_items: int = 25
+    vm_list: List[str], title: str = "Virtual Machines", max_items: int = 50
 ) -> str:
     """Format list of VM names (safe HTML)."""
     if not vm_list:
@@ -147,7 +147,6 @@ def format_vm_list(
 
     lines = [
         f"<b>{escape(title)}</b> ({len(vm_list)} found)",
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━",
         "",
     ]
 
@@ -180,7 +179,11 @@ def format_vm_events(events_data: Dict) -> str:
 
     if not events:
         message = events_data.get("message", "No events found")
-        lines = [f"<b>Events for {escape(vm_name)}</b>", "", escape(str(message))]
+        lines = [
+            f"<b>Events for {escape(vm_name)}</b>",
+            "",
+            escape(str(message))
+        ]
         return "\n".join(lines)
 
     # Create header with updated information
@@ -189,7 +192,7 @@ def format_vm_events(events_data: Dict) -> str:
         subheader = f"Showing latest {total_returned} of {total_found} total events"
     else:
         subheader = f"Found {total_found} event{'s' if total_found != 1 else ''}"
-
+    
     lines = [
         header,
         subheader,
@@ -201,17 +204,19 @@ def format_vm_events(events_data: Dict) -> str:
         message = event.get("message", "N/A")
         user = event.get("user", "")
         severity = event.get("severity", "info")
-
+        
         # Add severity emoji
-        severity_emoji = {"error": "🔴", "warning": "🟡", "info": "ℹ️"}.get(
-            severity.lower(), ""
-        )
-
+        severity_emoji = {
+            "error": "🔴",
+            "warning": "🟡", 
+            "info": "ℹ️"
+        }.get(severity.lower(), "")
+        
         # Format event type for better readability
         display_type = event_type
         if event_type.endswith("Event"):
             display_type = event_type[:-5]  # Remove "Event" suffix
-
+        
         # Color code common event types
         type_emoji = ""
         if "PoweredOn" in event_type:
@@ -230,21 +235,21 @@ def format_vm_events(events_data: Dict) -> str:
             type_emoji = "⚙️"
         elif "Migrated" in event_type:
             type_emoji = "🔄"
-
+        
         # Build the event entry
         lines.append(f"<b>{i}. {timestamp}</b>")
         lines.append(f"   {type_emoji} {escape(display_type)} {severity_emoji}")
         lines.append(f"   {escape(message)}")
-
+        
         if user:
             lines.append(f"   👤 {escape(user)}")
-
+            
         lines.append("")  # Empty line between events
 
     # Add info about newest first ordering
     if newest_first:
         lines.append("<i>Events shown newest first</i>")
-
+    
     return "\n".join(lines)
 
 
@@ -255,7 +260,7 @@ def format_network_info(nic_data: List[Dict]) -> str:
 
     lines = [
         "<b>Network Interfaces</b>",
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━",
+        "",
         "",
     ]
 
@@ -269,7 +274,6 @@ def format_network_info(nic_data: List[Dict]) -> str:
             [
                 f"{label} {status_icon}",
                 f"   MAC: {mac}",
-                f"   Network: {network}",
                 f"   Type: {nic_type}",
             ]
         )
@@ -287,7 +291,7 @@ def format_resource_usage(vm_info: Dict[str, Any]) -> str:
 
     lines = [
         "<b>Resource Usage</b>",
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━",
+        "",
         "",
     ]
 
@@ -307,7 +311,7 @@ def format_resource_usage(vm_info: Dict[str, Any]) -> str:
     mem_host_mb = vm_info.get("mem_host_mb")
 
     lines.append(
-        f"Memory: {c(ram_total if ram_total is not None else 'N/A')} GB allocated"
+        f"Memory: {c(ram_total if ram_total is not None else 'N/A')} GB"
     )
 
     def _safe_gb(x):
@@ -358,7 +362,6 @@ def format_vm_detailed(vm_info: Dict[str, Any]) -> str:
 
     lines = [
         f"{b(vm_info.get('name', '(no name)'))}",
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━",
         "",
     ]
 
@@ -428,10 +431,8 @@ def format_vm_detailed(vm_info: Dict[str, Any]) -> str:
             status = "🔗" if nic.get("connected") else "🔌"
             label = b(nic.get("label", f"NIC {i+1}"))
             mac = c(nic.get("mac", "N/A"))
-            network = c(nic.get("network", "N/A"))
             nic_type = c(nic.get("nic_type", "Unknown"))
             lines.append(f"  {i+1}. {status} {label} ({mac})")
-            lines.append(f"     Network: {network}")
             lines.append(f"     Type: {nic_type}")
             ips = nic.get("ipv4_addresses", [])
             lines.append(f"     IPs: {code_join(ips) if ips else c('None')}")
@@ -476,7 +477,6 @@ def format_vm_detailed(vm_info: Dict[str, Any]) -> str:
             [
                 "<b>VMware Tools</b>",
                 f"• Status: {c(tools_status)}",
-                "",
             ]
         )
 
@@ -484,10 +484,10 @@ def format_vm_detailed(vm_info: Dict[str, Any]) -> str:
     annotation = vm_info.get("annotation")
     if annotation and annotation.strip():
         lines.extend(
-            [
+            [   
+                "",
                 "<b>Notes</b>",
                 ihtml(annotation.strip()),
-                "",
             ]
         )
 
@@ -512,7 +512,7 @@ def format_maintenance_mode(in_maintenance: Optional[bool]) -> str:
     """Format maintenance mode status."""
     if in_maintenance is None:
         return "⚪ Unknown"
-    return "Maintenance Mode : ✅ " if in_maintenance else " Maintenance Mode : ❌"
+    return "Maintenance Mode : ✅ " if in_maintenance else "Maintenance Mode : ❌"
 
 
 def format_boot_time(boot_time) -> str:
@@ -542,7 +542,7 @@ def format_host_basic(host_info: Dict[str, Any]) -> str:
         return "❌ No host information available"
 
     source = "Redis Cache" if host_info.get("updated_at") else "vCenter Direct"
-
+    
     # CPU and Memory summary
     cpu_text = f"{host_info.get('cpu_cores', '?')} cores"
     if host_info.get("cpu_threads"):
@@ -556,7 +556,7 @@ def format_host_basic(host_info: Dict[str, Any]) -> str:
     if host_info.get("cpu_usage_percent"):
         cpu_usage_text = f"{host_info.get('cpu_usage_percent')}%"
     elif host_info.get("cpu_usage_mhz"):
-        cpu_usage_text = f"{host_info.get('cpu_usage_mhz')} MHz"
+        cpu_usage_text = f"{host_info.get('cpu_usage_mhz')}"
 
     memory_usage_text = "N/A"
     if host_info.get("memory_usage_percent"):
@@ -567,6 +567,7 @@ def format_host_basic(host_info: Dict[str, Any]) -> str:
     lines = [
         f"ESXi Host : {b(host_info.get('name', '(no name)'))}",
         f"{format_connection_state(host_info.get('connection_state', 'unknown'))}",
+        f"{format_maintenance_mode(host_info.get('in_maintenance_mode'))}",
         f"Vendor: {c(host_info.get('vendor', 'Unknown'))}",
         f"Model: {c(host_info.get('model', 'Unknown'))}",
         f"CPU: {c(cpu_text)}",
@@ -586,9 +587,9 @@ def format_host_basic(host_info: Dict[str, Any]) -> str:
 
 
 def format_host_detailed(host_info: Dict[str, Any]) -> str:
-    """Format detailed ESXi host information (safe HTML) — CPU in MHz/GHz only, no percentages."""
+    """Format detailed ESXi host information (safe HTML) – CPU in MHz/GHz only, no percentages."""
     if not host_info:
-        return "⚠ No host information available"
+        return "⚠  No host information available"
 
     def _fmt_mhz(mhz: Optional[float]) -> str:
         if mhz is None:
@@ -601,7 +602,6 @@ def format_host_detailed(host_info: Dict[str, Any]) -> str:
 
     lines = [
         f"{b(host_info.get('name', '(no name)'))}",
-        "─────────────────────────────────",
         "",
     ]
 
@@ -610,9 +610,10 @@ def format_host_detailed(host_info: Dict[str, Any]) -> str:
         [
             "<b>Basic Information</b>",
             f"• {format_connection_state(host_info.get('connection_state', 'unknown'))}",
+            f"• {format_maintenance_mode(host_info.get('in_maintenance_mode'))}",
             f"• Vendor: {c(host_info.get('vendor', 'Unknown'))}",
             f"• Model: {c(host_info.get('model', 'Unknown'))}",
-            f"• {format_maintenance_mode(host_info.get('in_maintenance_mode'))}",
+
         ]
     )
 
@@ -623,6 +624,7 @@ def format_host_detailed(host_info: Dict[str, Any]) -> str:
     lines.append("")
 
     # Hardware resources
+    cpu_model = host_info.get("cpu_model", "Unknown")
     cpu_cores = host_info.get("cpu_cores", 0)
     cpu_threads = host_info.get("cpu_threads", 0)
     cpu_mhz = host_info.get("cpu_mhz_per_core", 0)
@@ -632,12 +634,13 @@ def format_host_detailed(host_info: Dict[str, Any]) -> str:
     lines.extend(
         [
             "<b>Hardware Resources</b>",
+            f"• CPU Model: {c(cpu_model)}",
             f"• CPU Cores: {c(cpu_cores)}",
             f"• CPU Threads: {c(cpu_threads)}",
             f"• CPU Speed: {c(cpu_mhz)} MHz per core"
             if cpu_mhz
             else f"• CPU Speed: {c('N/A')}",
-            f"• Total CPU Capacity: {c(f'{cpu_total_mhz:,} MHz' if cpu_total_mhz else 'N/A')}",
+            f"• Total CPU Capacity: {c(f'{cpu_total_mhz:,} GHz' if cpu_total_mhz else 'N/A')}",
             f"• Memory: {c(f'{memory_gb} GB' if memory_gb else 'N/A')}",
             "",
         ]
@@ -649,7 +652,7 @@ def format_host_detailed(host_info: Dict[str, Any]) -> str:
     # CPU usage (MHz only)
     cpu_usage_mhz = host_info.get("cpu_usage_mhz")
     if cpu_usage_mhz is not None:
-        lines.append(f"• CPU: {c(_fmt_mhz(cpu_usage_mhz))} used")
+        lines.append(f"• 🔥 CPU: {c(_fmt_mhz(cpu_usage_mhz))} used of {c(f'{cpu_total_mhz:,} GHz')}")
     else:
         # Try to derive from percent only if per-core MHz is known
         cpu_usage_percent = host_info.get("cpu_usage_percent")
@@ -657,13 +660,13 @@ def format_host_detailed(host_info: Dict[str, Any]) -> str:
             # If total MHz is available, percent of total capacity is a reasonable derivation
             try:
                 derived = float(cpu_usage_percent) * float(cpu_total_mhz) / 100.0
-                lines.append(f"• 🔥 CPU: {c(_fmt_mhz(derived))} used")
+                lines.append(f"• 🔥 CPU: {c(_fmt_mhz(derived))} used of {c(f'{cpu_total_mhz:,} GHz')}")
             except Exception:
                 lines.append(f"• 🔥 CPU: {c('N/A')}")
         else:
             lines.append(f"• 🔥 CPU: {c('N/A')}")
 
-    # Memory usage (no percentages — show used, optionally "of total")
+    # Memory usage (no percentages – show used, optionally "of total")
     memory_usage_mb = host_info.get("memory_usage_mb")
     if memory_usage_mb is not None:
         used_text = format_mb_to_gb(memory_usage_mb)  # e.g., "12.34 GB"
@@ -700,7 +703,7 @@ def format_host_detailed(host_info: Dict[str, Any]) -> str:
         ]
     )
 
-    # Top VMs by CPU usage — MHz/GHz only
+    # Top VMs by CPU usage – MHz/GHz only
     # Accept either `top_vms_cpu` with `cpu_usage_mhz`, or legacy `top_vms_cpu_percent`
     top_cpu_mhz_list = host_info.get(
         "top_vms_cpu", []
@@ -773,7 +776,7 @@ def format_host_detailed(host_info: Dict[str, Any]) -> str:
                 f"{mem_allocated_mb / 1024:.0f} GB" if mem_allocated_mb else "?"
             )
             lines.append(
-                f"{i}. {vm_name}: {c(mem_text)} / {c(allocated_text)} allocated"
+                f"{i}. {vm_name}: {c(mem_text)} / {c(allocated_text)}"
             )
         lines.append("")
 
@@ -809,11 +812,12 @@ def format_search_results(
 ) -> str:
     """Format search results display (safe HTML)."""
     if not results:
-        return f"<b>Search Results</b>\n\nNo {result_type.lower()} found matching {c(search_term)}"
+        return f"<b>Search Results</b>\nNo {result_type.lower()} found matching {c(search_term)}"
     return format_vm_list(results, f"Search Results for '{search_term}'")
 
 
-def format_help_message(commands: List[str], user_role: str = None) -> str:
+def format_help_message(
+    commands: List[str], user_role: str = None) -> str:
     """Format help message showing available commands (safe for HTML parse_mode)."""
     lines = [
         "<b>Available Commands</b>",
@@ -825,14 +829,8 @@ def format_help_message(commands: List[str], user_role: str = None) -> str:
 
     # Group commands by category
     basic_commands = [cmd for cmd in commands if cmd in ["/start", "/help"]]
-    user_commands = [
-        cmd
-        for cmd in commands
-        if cmd in ["/find", "/vm_name", "/vm_ip", "/vm_events", "/host_name"]
-    ]
-    admin_commands = [
-        cmd for cmd in commands if cmd in ["/flush", "/ai_linux_basic", "/ai_linux_sec"]
-    ]
+    user_commands = [cmd for cmd in commands if cmd in ["/find", "/vm_name", "/vm_ip", "/vm_events", "/host_name"]]
+    admin_commands = [cmd for cmd in commands if cmd in ["/flush", "/ai_linux_basic", "/ai_linux_sec"]]
 
     if basic_commands:
         lines.append("<b>Basic Commands</b>")
@@ -847,56 +845,36 @@ def format_help_message(commands: List[str], user_role: str = None) -> str:
         lines.append("<b>VM Operations</b>")
         for cmd in user_commands:
             if cmd == "/find":
-                lines.append(
-                    "• <code>/find</code> [<code>VM Keyword</code>] - Search VMs by keyword"
-                )
+                lines.append("• <code>/find</code> [<code>VM Keyword</code>] - Search VMs by keyword")
             elif cmd == "/vm_name":
-                lines.append(
-                    "• <code>/vm_name</code> [<code>VM Name</code>] - Get VM info by VM name"
-                )
+                lines.append("• <code>/vm_name</code> [<code>VM Name</code>] - Get VM info by VM name")
             elif cmd == "/vm_ip":
-                lines.append(
-                    "• <code>/vm_ip</code> [<code>IPv4</code>] - Get VM info by IPv4 address"
-                )
+                lines.append("• <code>/vm_ip</code> [<code>IPv4</code>] - Get VM info by IPv4 address")
             elif cmd == "/vm_events":
                 if str(user_role).lower() == "admin":
-                    lines.append(
-                        "• <code>/vm_events</code> [<code>VM Name</code>] [<code>Number</code>] - Get VM events xx days (default: 7)"
-                    )
+                    lines.append("• <code>/vm_events</code> [<code>VM Name</code>] [<code>Number</code>] - Get xx VM events (default 5, max 50)")
                 else:
-                    lines.append(
-                        "• <code>/vm_events</code> [<code>VM Name</code>] - Get VM events 1 day ago"
-                    )
+                    lines.append("• <code>/vm_events</code> [<code>VM Name</code>] - Get 5 VM events ")
             elif cmd == "/host_name":
-                lines.append(
-                    "• <code>/host_name</code> [<code>ESXi Host Name</code>] - Get ESXi host info by name"
-                )
+                lines.append("• <code>/host_name</code> [<code>ESXi Host Name</code>] - Get ESXi host info by name")
         lines.append("")
 
     if admin_commands:
         lines.append("<b>Admin Commands</b>")
         for cmd in admin_commands:
             if cmd == "/flush":
-                lines.append(
-                    "• <code>/flush</code> - Clear all cached VM data on Redis"
-                )
+                lines.append("• <code>/flush</code> - Clear all cached VM data on Redis")
             elif cmd == "/ai_linux_basic":
-                lines.append(
-                    "• <code>/ai_linux_basic</code> [<code>IPv4</code>] - Get basic Linux VM info using AI"
-                )
+                lines.append("• <code>/ai_linux_basic</code> [<code>IPv4</code>] - Get basic Linux VM info using AI")
             elif cmd == "/ai_linux_sec":
-                lines.append(
-                    "• <code>/ai_linux_sec</code> [<code>IPv4</code>] - Get security Linux VM info using AI"
-                )
+                lines.append("• <code>/ai_linux_sec</code> [<code>IPv4</code>] - Get security Linux VM info using AI")
         lines.append("")
 
     if not commands or len(commands) <= 2:
-        lines.extend(
-            [
-                "No additional commands available for your role.",
-                "Contact an administrator for access.",
-            ]
-        )
+        lines.extend([
+            "No additional commands available for your role.",
+            "Contact an administrator for access.",
+        ])
 
     return "\n".join(lines)
 
@@ -913,8 +891,7 @@ def format_start_message(
     uname_text = f"@{user_name}" if user_name else "N/A"
 
     return (
-        f"{greeting}\n"
-        "Welcome to VMware Management Bot! 🤖\n"
+        f"🤖 Telegram VMware Bot 🤖\n"
         f"User: <code>{escape(uname_text)}</code>\n"
         f"User ID: <code>{uid_text}</code>\n"
         f"Your role: <b>{role_text}</b>\n"
